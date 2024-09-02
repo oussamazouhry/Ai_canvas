@@ -1,0 +1,10 @@
+git add -A 
+git commit -m "name your commit"
+git push 
+
+
+
+You may also need to update the origin for your repository if it is set to HTTPS. Do this to switch to SSH:
+
+git remote -v
+git remote set-url (url of the corresponding ssh)

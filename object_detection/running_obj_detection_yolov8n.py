@@ -3,9 +3,7 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 from ultralytics.utils.benchmarks import benchmark
-# Benchmark on GPU
 # import supervision as sv
-
 
 def finetuneyolo(data_set):
     # Load the pre-trained YOLOv8n model
@@ -48,9 +46,3 @@ if __name__=="__main__":
     # cv2.imshow('Detection Results', img_rgb)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
-
-
-## just a test
-
-def test(x):
-    return(x)
