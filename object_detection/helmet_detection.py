@@ -33,100 +33,60 @@ results = model.train(
     name='helmet_detection_model'
 )
 
-# Step 5: Perform helmet detection
-def detect_helmets(model_path, source='0', conf_threshold=0.25):
+# Step 5: Perform helmet detection on images
+def detect_helmets_in_image(model_path, image_path, conf_threshold=0.25, save_path=None):
     # Load the fine-tuned model
     model = YOLO(model_path)
     
-    # Open video capture (0 for webcam, or provide a video file path)
-    cap = cv2.VideoCapture(source)
+    # Load and process the image
+    image = Image.open(image_path)
+    results = model(image, conf=conf_threshold)[0]
     
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        # Perform inference
-        results = model(frame, conf=conf_threshold)
-        
-        # Process results
-        for result in results:
-            boxes = result.boxes.cpu().numpy()
-            for box in boxes:
-                x1, y1, x2, y2 = box.xyxy[0].astype(int)
-                class_id = box.cls[0].astype(int)
-                conf = box.conf[0]
-                
-                if model.names[class_id] == 'person':
-                    color = (0, 255, 0)  # Green for person
-                    label = f"Person: {conf:.2f}"
-                elif model.names[class_id] == 'helmet':
-                    color = (0, 255, 255)  # Yellow for helmet
-                    label = f"Helmet: {conf:.2f}"
-                
-                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-        
-        # Display the result
-        cv2.imshow("Helmet Detection", frame)
-        
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    # Convert PIL Image to OpenCV format
+    opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
     
-    cap.release()
-    cv2.destroyAllWindows()
+    # Process and draw results
+    for box in results.boxes:
+        x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
+        class_id = int(box.cls[0].item())
+        conf = box.conf[0].item()
+        
+        if model.names[class_id] == 'person':
+            color = (0, 255, 0)  # Green for person
+            label = f"Person: {conf:.2f}"
+        elif model.names[class_id] == 'helmet':
+            color = (0, 255, 255)  # Yellow for helmet
+            label = f"Helmet: {conf:.2f}"
+        
+        cv2.rectangle(opencv_image, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(opencv_image, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
+    
+    # Display or save the result
+    if save_path:
+        cv2.imwrite(save_path, opencv_image)
+        print(f"Processed image saved to {save_path}")
+    else:
+        cv2.imshow("Helmet Detection", opencv_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
-# Example usage
-detect_helmets("path/to/trained_helmet_model.pt", source='0', conf_threshold=0.25)
+# Example usage for a single image
+detect_helmets_in_image("path/to/trained_helmet_model.pt", "path/to/test_image.jpg", save_path="output_image.jpg")
 
-# Additional function for helmet violation detection
-def detect_helmet_violations(model_path, source='0', conf_threshold=0.25):
+# Function to process a batch of images
+def process_image_batch(model_path, input_folder, output_folder, conf_threshold=0.25):
     model = YOLO(model_path)
-    cap = cv2.VideoCapture(source)
     
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        results = model(frame, conf=conf_threshold)
-        
-        persons = []
-        helmets = []
-        
-        for result in results:
-            boxes = result.boxes.cpu().numpy()
-            for box in boxes:
-                x1, y1, x2, y2 = box.xyxy[0].astype(int)
-                class_id = box.cls[0].astype(int)
-                conf = box.conf[0]
-                
-                if model.names[class_id] == 'person':
-                    persons.append((x1, y1, x2, y2))
-                elif model.names[class_id] == 'helmet':
-                    helmets.append((x1, y1, x2, y2))
-        
-        for person in persons:
-            has_helmet = False
-            for helmet in helmets:
-                if (helmet[0] > person[0] and helmet[1] > person[1] and
-                    helmet[2] < person[2] and helmet[3] < person[3]):
-                    has_helmet = True
-                    break
+    os.makedirs(output_folder, exist_ok=True)
+    
+    for filename in os.listdir(input_folder):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            input_path = os.path.join(input_folder, filename)
+            output_path = os.path.join(output_folder, f"processed_{filename}")
             
-            color = (0, 255, 0) if has_helmet else (0, 0, 255)  # Green if has helmet, Red if not
-            label = "Safe" if has_helmet else "Violation"
-            cv2.rectangle(frame, (person[0], person[1]), (person[2], person[3]), color, 2)
-            cv2.putText(frame, label, (person[0], person[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
-        
-        cv2.imshow("Helmet Violation Detection", frame)
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+            detect_helmets_in_image(model_path, input_path, conf_threshold, save_path=output_path)
     
-    cap.release()
-    cv2.destroyAllWindows()
+    print(f"Processed all images. Results saved in {output_folder}")
 
-# Example usage of helmet violation detection
-detect_helmet_violations("path/to/trained_helmet_model.pt", source='0', conf_threshold=0.25)
+# Example usage for batch processing
+process_image_batch("path/to/trained_helmet_model.pt", "path/to/input_images", "path/to/output_images")
