@@ -48,3 +48,9 @@ if __name__=="__main__":
     # cv2.imshow('Detection Results', img_rgb)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
+
+
+## just a test
+
+def test(x):
+    return(x)
